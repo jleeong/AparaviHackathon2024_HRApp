@@ -1,0 +1,77 @@
+services:
+  mysql:
+    image: mysql:8.0.36
+    environment:
+      - MYSQL_ROOT_PASSWORD=aparavi
+    command: mysqld --innodb_print_all_deadlocks=1 --innodb_buffer_pool_instances=16 --innodb_buffer_pool_size=4GB --disable-log-bin
+    ports:
+      - 3306
+    healthcheck:
+      test: ["CMD-SHELL", "exit | mysql -h localhost -P 3306 -u root -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - mysql_data:/var/lib/mysql
+  platform:
+    image: aparavi.jfrog.io/aparavi-docker-nonprod/core
+    ports:
+      - 9452
+    environment:
+      - APARAVI_PLATFORM=localhost.aparavi.com
+      - APARAVI_DBHOST=mysql
+      - APARAVI_DBPORT=3306
+      - APARAVI_DBUSER=root
+      - APARAVI_DBPASS=aparavi
+      - NODE_ENV=production
+      - NODE_OPTIONS=--max-old-space-size=12288
+    volumes:
+      - platform_data:/var/lib/aparavi-data-ia 
+      - platform_config:/etc/opt/aparavi-data-ia
+    healthcheck:
+      test: ["CMD", "bash", "scripts/update_policy.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  appagent:
+    image: aparavi.jfrog.io/aparavi-docker-nonprod/core
+    ports:
+      - 9752
+    environment:
+      - APPTYPE=appagt
+      - APARAVI_PLATFORM=platform
+      - APARAVI_DBHOST=mysql
+      - APARAVI_DBPORT=3306
+      - APARAVI_DBUSER=root
+      - APARAVI_DBPASS=aparavi
+      - APARAVI_EXTRA_ARGS=--cfg.features.AnalyticsService.enabled=true --cfg.node.parentObjectId=CLIENTS
+      - NODE_ENV=production
+      - NODE_OPTIONS=--max-old-space-size=12288
+    volumes:
+      - appagent_data:/var/lib/aparavi-data-ia
+      - appagent_config:/etc/opt/aparavi-data-ia
+      - source_data:/source
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9752/server/api"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      platform:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+secrets:
+  syncfusion_license:
+    file: ~/syncfusion
+volumes:
+ mysql_data:
+ platform_data:
+ platform_config:
+ appagent_data:
+ appagent_config:
+ source_data:

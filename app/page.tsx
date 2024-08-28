@@ -4,8 +4,11 @@ export default function Home() {
   const InfoCard = (
     <div className="p-4 md:p-8 rounded bg-[#25252d] w-full max-h-[85%] overflow-hidden">
       <h1 className="text-3xl md:text-4xl mb-4">
-        ▲ Next.js + LangChain.js 🦜🔗
+        Aparavi HR Chatbot
       </h1>
+      <h2 className="text-3xl md:text-4xl mb-4">
+        ▲ Next.js + LangChain.js 🔗
+      </h2>
       <ul>
         <li className="text-l">
           🤝
@@ -33,10 +36,9 @@ export default function Home() {
           </span>
         </li>
         <li>
-          🏴‍☠️
+          🚀
           <span className="ml-2">
-            By default, the bot is pretending to be a pirate, but you can change
-            the prompt to whatever you want!
+            By default, the bot is querying the semantic search endpoint hosted by the Aparavi platform configured in <code>.env.local</code> in the project's root directory. This information is then used to enable RAG for this LLM.
           </span>
         </li>
         <li className="hidden text-l md:block">
@@ -59,21 +61,15 @@ export default function Home() {
             !
           </span>
         </li>
-        <li className="text-l">
-          👇
-          <span className="ml-2">
-            Try asking e.g. <code>What is it like to be a pirate?</code> below!
-          </span>
-        </li>
       </ul>
     </div>
   );
   return (
     <ChatWindow
       endpoint="api/chat"
-      emoji="🏴‍☠️"
-      titleText="Patchy the Chatty Pirate"
-      placeholder="I'm an LLM pretending to be a pirate! Ask me about the pirate life!"
+      emoji="🤖"
+      titleText="Your personal HR assistant"
+      placeholder="I'm an LLM intended to help you summarize and understand your corporate data!"
       emptyStateComponent={InfoCard}
     ></ChatWindow>
   );

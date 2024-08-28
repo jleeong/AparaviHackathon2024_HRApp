@@ -1,9 +1,14 @@
+import {AparaviRetriever, getAuthToken} from "./retriever";
+
 import { NextRequest, NextResponse } from "next/server";
 import { Message as VercelChatMessage, StreamingTextResponse } from "ai";
 
-import { ChatOpenAI } from "@langchain/openai";
+// import { ChatOpenAI } from "@langchain/openai";
+import { ChatAnthropic } from "@langchain/anthropic";
 import { PromptTemplate } from "@langchain/core/prompts";
+import { RunnableSequence, RunnablePassthrough } from "@langchain/core/runnables";
 import { HttpResponseOutputParser } from "langchain/output_parsers";
+import { formatDocumentsAsString } from "langchain/util/document";
 
 export const runtime = "edge";
 
@@ -11,7 +16,10 @@ const formatMessage = (message: VercelChatMessage) => {
   return `${message.role}: ${message.content}`;
 };
 
-const TEMPLATE = `You are a pirate named Patchy. All responses must be extremely verbose and in pirate dialect.
+const TEMPLATE = `You are a helpful assistant for a private company. All responses must be professional and as relevant as possible. Use the provided context to make your responses specific to the company and treat the provided context as accurate, real time information.
+
+Context:
+{context}
 
 Current conversation:
 {chat_history}
@@ -34,17 +42,11 @@ export async function POST(req: NextRequest) {
     const prompt = PromptTemplate.fromTemplate(TEMPLATE);
 
     /**
-     * You can also try e.g.:
-     *
-     * import { ChatAnthropic } from "@langchain/anthropic";
-     * const model = new ChatAnthropic({});
-     *
-     * See a full list of supported models at:
-     * https://js.langchain.com/docs/modules/model_io/models/
+     * Using Anthropic Model
      */
-    const model = new ChatOpenAI({
+    const model = new ChatAnthropic({
       temperature: 0.8,
-      model: "gpt-3.5-turbo-0125",
+      model: "claude-3-5-sonnet-20240620",
     });
 
     /**
@@ -53,18 +55,28 @@ export async function POST(req: NextRequest) {
      */
     const outputParser = new HttpResponseOutputParser();
 
+    // Initialize custom Aparavi retrieve for RAG flow
+    const auth_token = await getAuthToken()
+    const retriever = new AparaviRetriever(auth_token,{})
+
     /**
      * Can also initialize as:
      *
-     * import { RunnableSequence } from "@langchain/core/runnables";
-     * const chain = RunnableSequence.from([prompt, model, outputParser]);
-     */
-    const chain = prompt.pipe(model).pipe(outputParser);
+     * const chain = prompt.pipe(model).pipe(outputParser);
+     */    
 
-    const stream = await chain.stream({
-      chat_history: formattedPreviousMessages.join("\n"),
-      input: currentMessageContent,
-    });
+    const ragChain = RunnableSequence.from([
+      {
+        chat_history: (x) => formattedPreviousMessages.join("\n"),
+        input: new RunnablePassthrough(),
+        context: retriever.pipe(formatDocumentsAsString)
+      },
+      prompt,
+      model,
+      outputParser
+    ])
+
+    const stream = await ragChain.stream(currentMessageContent);
 
     return new StreamingTextResponse(stream);
   } catch (e: any) {
